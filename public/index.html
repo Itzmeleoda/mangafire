@@ -208,9 +208,29 @@ async function api(path) {
   return data;
 }
 
-fetch(BASE + "/health").then(r => r.json()).then(d => {
-  $("health").textContent = "● online"; $("health").style.color = "var(--ok)";
-}).catch(() => { $("health").textContent = "● offline"; $("health").style.color = "#ff7676"; });
+async function pollHealth() {
+  try {
+    const r = await fetch(BASE + "/health");
+    const d = await r.json();
+    const b = d.browser || {};
+    const el = $("health");
+    if (b.state === "ready") {
+      el.textContent = "● browser ready"; el.style.color = "var(--ok)";
+    } else if (b.state === "starting") {
+      el.textContent = "◐ warming up (Cloudflare)…"; el.style.color = "var(--accent2)";
+      setTimeout(pollHealth, 5000);
+    } else if (b.state === "failed") {
+      el.textContent = "● warm-up failed — retrying on request"; el.style.color = "#ff7676";
+      setTimeout(pollHealth, 10000);
+    } else {
+      el.textContent = "○ idle"; el.style.color = "var(--muted)";
+      setTimeout(pollHealth, 5000);
+    }
+  } catch {
+    $("health").textContent = "● offline"; $("health").style.color = "#ff7676";
+  }
+}
+pollHealth();
 
 $("q").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
 

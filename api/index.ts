@@ -5,7 +5,7 @@ import path from 'path';
 import createHttpError, { HttpError } from 'http-errors';
 
 import { cache, TTL } from '../src/lib/cache';
-import { shutdownBrowser } from '../src/browser/pool';
+import { shutdownBrowser, prewarm, browserStatus } from '../src/browser/pool';
 import {
   search,
   mangaInfo,
@@ -29,9 +29,29 @@ app.get('/health', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
     engine: 'playwright-spa',
+    browser: browserStatus(),
     message: 'MangaFire API — try /api/search/naruto',
   });
 });
+
+// Scraping routes need the browser. While it's still warming up (Cloudflare
+// challenge), fail fast with a clear 503 instead of holding the request until
+// the platform proxy times out with a bare 502. Each 503 also (re)triggers
+// the warm-up so it self-heals.
+const requireBrowser = (_req: Request, res: Response, next: NextFunction) => {
+  const st = browserStatus();
+  if (st.state === 'ready') return next();
+  prewarm();
+  res.status(503).json({
+    error: 'Browser is warming up (solving Cloudflare). Retry in ~20 seconds.',
+    status: 503,
+    browser: st,
+  });
+};
+app.use(
+  ['/api/search', '/api/manga', '/api/chapter', '/api/home', '/api/updated', '/api/newest', '/api/added'],
+  requireBrowser,
+);
 
 // ── image proxy (streams the image with the right Referer) ───────────────
 app.get('/proxy-image', async (req: Request, res: Response, next: NextFunction) => {
@@ -177,7 +197,12 @@ app.use((err: HttpError, _req: Request, res: Response, _next: NextFunction) => {
 // targets Render — Chromium can't run in Vercel serverless.)
 if (!process.env.VERCEL) {
   const PORT = parseInt(process.env.PORT || '3000');
-  app.listen(PORT, () => console.log(`MangaFire API running on port ${PORT}`));
+  app.listen(PORT, () => {
+    console.log(`MangaFire API running on port ${PORT}`);
+    // Warm up the browser + Cloudflare immediately so the first real
+    // request doesn't pay the cold-start cost.
+    prewarm();
+  });
 }
 
 for (const sig of ['SIGTERM', 'SIGINT'] as const) {

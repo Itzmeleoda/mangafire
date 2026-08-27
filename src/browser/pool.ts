@@ -31,6 +31,41 @@ let context: BrowserContext | null = null;
 let pool: Page[] = [];
 let initPromise: Promise<BrowserContext> | null = null;
 
+// Observable browser state (surfaced on /health).
+let browserState: 'idle' | 'starting' | 'ready' | 'failed' = 'idle';
+let browserError = '';
+let readyAt = 0;
+
+export function browserStatus() {
+  return {
+    state: browserState,
+    error: browserError || undefined,
+    readyFor: readyAt ? Math.round((Date.now() - readyAt) / 1000) + 's' : undefined,
+    poolFree: pool.length,
+    poolSize: POOL_SIZE,
+  };
+}
+
+/**
+ * Kick off browser launch + Cloudflare warm-up immediately (called at boot)
+ * so the first real request doesn't pay the 60–90s cold-start cost and trip
+ * the platform's proxy timeout.
+ */
+export function prewarm(): void {
+  init().then(
+    () => {
+      browserState = 'ready';
+      readyAt = Date.now();
+      console.log('[browser] prewarm complete — ready for requests');
+    },
+    (err) => {
+      browserState = 'failed';
+      browserError = err?.message || String(err);
+      console.error(`[browser] prewarm failed: ${browserError} (will retry on next request)`);
+    },
+  );
+}
+
 /** Click the Turnstile checkbox if one is rendered (managed challenges). */
 async function tryClickTurnstile(page: Page): Promise<void> {
   try {
@@ -72,6 +107,8 @@ async function waitOutChallenge(page: Page, timeoutMs = CHALLENGE_TIMEOUT): Prom
 async function init(): Promise<BrowserContext> {
   if (context) return context;
   if (!initPromise) {
+    browserState = 'starting';
+    browserError = '';
     initPromise = (async () => {
       console.log(
         `[browser] launching chromium (headless=${HEADLESS}, pool=${POOL_SIZE}, display=${process.env.DISPLAY || 'none'})`,
@@ -123,6 +160,7 @@ async function init(): Promise<BrowserContext> {
       return ctx;
     })().catch((err) => {
       initPromise = null; // allow retry on next request
+      browserState = 'idle';
       throw err;
     });
   }
