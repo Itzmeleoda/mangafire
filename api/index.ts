@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import axios from 'axios';
+import path from 'path';
 import createHttpError, { HttpError } from 'http-errors';
 
 import { cache, TTL } from '../src/lib/cache';
@@ -20,7 +21,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get('/', (_req: Request, res: Response) => {
+// Interactive UI: search → manga → chapters → pages, with copyable API URLs.
+// Compiled file lives at dist/api/index.js, so public/ is two levels up.
+app.use(express.static(path.join(__dirname, '..', '..', 'public')));
+
+app.get('/health', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
     engine: 'playwright-spa',

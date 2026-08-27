@@ -10,6 +10,7 @@ RUN npm ci
 COPY tsconfig.json ./
 COPY api ./api
 COPY src ./src
+COPY public ./public
 RUN npx tsc && npm prune --omit=dev
 
 ENV NODE_ENV=production \

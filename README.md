@@ -18,6 +18,21 @@ responses** instead of scraping HTML. Same technique as the Electron Manga Bot's
 Response shapes match the legacy aizen-manga contract, so the Electron app's
 `sources/mangafire.py` works against it unchanged via its `MANGAFIRE_API` env var.
 
+## Interactive web UI
+
+Open your deployed URL (e.g. `https://mangafire-api.onrender.com`) in a browser.
+You get a dark-themed console where you can:
+
+- **Search** any manga and see real covers/results
+- **Open a series** — info, genres, status, language picker
+- **Browse all chapters** (pagination is walked server-side)
+- **Open a chapter** and preview every page image
+- **Copy any API URL** with one click — the exact endpoint to paste into your
+  app (info URL, chapters URL, pages URL, all image URLs, or the base URL for
+  `MANGAFIRE_API`)
+
+The JSON health check moved to `GET /health`.
+
 ## Architecture
 
 ```
@@ -37,7 +52,8 @@ Electron app ──HTTP──▶ this API (Render) ──Playwright──▶ man
 
 | Route | Returns |
 |---|---|
-| `GET /` | health + engine info |
+| `GET /` | interactive web UI (search → chapters → pages, copy API URLs) |
+| `GET /health` | health + engine info (JSON) |
 | `GET /api/search/:keyword?page=1` | `{currentPage, totalPages, results:[{id,title,poster,type}]}` |
 | `GET /api/manga/:id` | `{mangaInfo:{title,altTitles,poster,status,type,description,author,published,genres,rating}, languages}` |
 | `GET /api/manga/:id/chapters` | language list `[{id,title,chapters,logo}]` |

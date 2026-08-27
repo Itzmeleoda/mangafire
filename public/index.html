@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MangaFire API</title>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --panel: #151923;
+    --panel2: #1c2130;
+    --border: #2a3040;
+    --text: #e8eaf0;
+    --muted: #8b93a7;
+    --accent: #ff5c38;
+    --accent2: #ffa538;
+    --ok: #3ddc84;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+  }
+  a { color: var(--accent2); text-decoration: none; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 20px 80px; }
+
+  header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+  .logo { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo span { background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .badge { font-size: 12px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); }
+
+  .basebar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 12px 16px; margin: 18px 0;
+  }
+  .basebar .label { color: var(--muted); font-size: 13px; }
+  .basebar code {
+    background: var(--panel2); padding: 6px 12px; border-radius: 8px; font-size: 13px;
+    color: var(--ok); word-break: break-all;
+  }
+
+  .searchrow { display: flex; gap: 10px; margin: 22px 0 14px; }
+  .searchrow input {
+    flex: 1; background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    border-radius: var(--radius); padding: 14px 18px; font-size: 16px; outline: none;
+  }
+  .searchrow input:focus { border-color: var(--accent); }
+  button {
+    background: linear-gradient(90deg, var(--accent), var(--accent2)); color: #1a0d05;
+    border: none; border-radius: var(--radius); padding: 12px 22px; font-size: 15px;
+    font-weight: 700; cursor: pointer; transition: filter .15s;
+  }
+  button:hover { filter: brightness(1.1); }
+  button.ghost {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border); font-weight: 600;
+  }
+  button.small { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
+
+  .status { color: var(--muted); font-size: 14px; padding: 10px 2px; min-height: 24px; }
+  .status.err { color: #ff7676; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite;
+    vertical-align: -2px; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; cursor: pointer; transition: transform .12s, border-color .12s;
+  }
+  .card:hover { transform: translateY(-3px); border-color: var(--accent); }
+  .card img { width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block; background: var(--panel2); }
+  .card .t { padding: 10px 12px; font-size: 13px; font-weight: 600; line-height: 1.35;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card .s { padding: 0 12px 10px; font-size: 11px; color: var(--muted); text-transform: uppercase; }
+
+  .crumbs { display: flex; align-items: center; gap: 8px; margin: 18px 0 12px; font-size: 14px; color: var(--muted); flex-wrap: wrap; }
+  .crumbs a { cursor: pointer; }
+
+  .detail { display: flex; gap: 22px; background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px; margin-bottom: 18px; flex-wrap: wrap; }
+  .detail img { width: 170px; border-radius: 10px; aspect-ratio: 2/3; object-fit: cover; background: var(--panel2); }
+  .detail .meta { flex: 1; min-width: 260px; }
+  .detail h2 { font-size: 22px; margin-bottom: 6px; }
+  .detail .tags { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 12px; }
+  .tag { font-size: 11px; padding: 3px 10px; border-radius: 999px; background: var(--panel2);
+    border: 1px solid var(--border); color: var(--muted); text-transform: capitalize; }
+  .detail p { color: var(--muted); font-size: 14px; line-height: 1.55; max-height: 110px; overflow: auto; }
+
+  .rowhead { display: flex; align-items: center; gap: 10px; margin: 20px 0 12px; flex-wrap: wrap; }
+  .rowhead h3 { font-size: 17px; }
+  .rowhead select {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 10px; font-size: 13px;
+  }
+
+  .chapters { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+  .chap {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 14px; cursor: pointer; font-size: 13px; display: flex; justify-content: space-between;
+    gap: 8px; transition: border-color .12s;
+  }
+  .chap:hover { border-color: var(--accent); }
+  .chap .d { color: var(--muted); font-size: 11px; white-space: nowrap; }
+
+  .pages { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .page img { width: 100%; border-radius: 8px; border: 1px solid var(--border); display: block; background: var(--panel2); }
+  .page .n { text-align: center; font-size: 11px; color: var(--muted); padding: 4px 0; }
+
+  .apibox {
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px 20px; margin-top: 26px;
+  }
+  .apibox h3 { margin-bottom: 4px; }
+  .apibox .sub { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+  .ep { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+  .ep .m { font-size: 11px; font-weight: 800; color: var(--ok); width: 34px; }
+  .ep code { flex: 1; font-size: 12.5px; color: var(--text); word-break: break-all; min-width: 200px; }
+  .ep .d { width: 100%; font-size: 12px; color: var(--muted); padding-left: 44px; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--ok); color: #06281a; font-weight: 700; font-size: 14px;
+    padding: 10px 22px; border-radius: 999px; opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">Manga<span>Fire</span> API</div>
+    <div class="badge">Playwright · SPA interception</div>
+    <div class="badge" id="health">checking…</div>
+  </header>
+
+  <div class="basebar">
+    <span class="label">Your API base URL:</span>
+    <code id="baseUrl"></code>
+    <button class="ghost small" onclick="copyText(BASE)">Copy</button>
+    <span class="label">— set this as <b>MANGAFIRE_API</b> in your app</span>
+  </div>
+
+  <div class="searchrow">
+    <input id="q" type="text" placeholder="Search manga… e.g. solo leveling" autofocus>
+    <button onclick="doSearch()">Search</button>
+  </div>
+  <div class="status" id="status"></div>
+
+  <div id="content"></div>
+
+  <div class="apibox">
+    <h3>API endpoints</h3>
+    <div class="sub">Everything below works with plain HTTP GET. Click copy, paste into your app.</div>
+    <div id="endpoints"></div>
+  </div>
+</div>
+<div class="toast" id="toast">Copied!</div>
+
+<script>
+const BASE = window.location.origin;
+const $ = (id) => document.getElementById(id);
+$("baseUrl").textContent = BASE;
+
+const EPS = [
+  { m: "GET", p: "/api/search/{keyword}?page=1", d: "Search. Returns {currentPage, totalPages, results:[{id,title,poster,type}]}" },
+  { m: "GET", p: "/api/manga/{id}", d: "Series info. id = slug.hid from search (e.g. solo-leveling.lrmyz)" },
+  { m: "GET", p: "/api/manga/{id}/chapters", d: "Available languages" },
+  { m: "GET", p: "/api/manga/{id}/chapters/{lang}", d: "Chapter list. Each chapter has a chapterId token" },
+  { m: "GET", p: "/api/chapter/{chapterId}", d: "Page image URLs (array of strings) — download with Referer: https://mangafire.to/" },
+  { m: "GET", p: "/proxy-image?url={imageUrl}", d: "Streams an image with the right headers (use in <img> tags)" },
+  { m: "GET", p: "/api/updated · /api/newest · /api/added", d: "Browse listings" },
+  { m: "GET", p: "/api/cache/stats", d: "Cache entries + TTLs" },
+];
+$("endpoints").innerHTML = EPS.map(e => `
+  <div class="ep">
+    <span class="m">${e.m}</span>
+    <code>${BASE}${e.p}</code>
+    <button class="ghost small" onclick="copyText('${BASE}${e.p}')">Copy</button>
+    <span class="d">${e.d}</span>
+  </div>`).join("");
+
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg || "Copied!";
+  t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 1400);
+}
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => toast()).catch(() => {
+    const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy"); ta.remove(); toast();
+  });
+}
+function setStatus(html, isErr) {
+  const s = $("status"); s.className = "status" + (isErr ? " err" : ""); s.innerHTML = html;
+}
+function loading(msg) { setStatus(`<span class="spinner"></span>${msg} <span style="opacity:.6">(first call after idle can take ~30–60s)</span>`); }
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function img(u) { return u ? `${BASE}/proxy-image?url=${encodeURIComponent(u)}` : ""; }
+
+async function api(path) {
+  const r = await fetch(BASE + path);
+  const data = await r.json().catch(() => null);
+  if (!r.ok) throw new Error((data && data.error) || `HTTP ${r.status}`);
+  return data;
+}
+
+fetch(BASE + "/health").then(r => r.json()).then(d => {
+  $("health").textContent = "● online"; $("health").style.color = "var(--ok)";
+}).catch(() => { $("health").textContent = "● offline"; $("health").style.color = "#ff7676"; });
+
+$("q").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
+
+async function doSearch() {
+  const kw = $("q").value.trim();
+  if (!kw) return;
+  loading(`Searching “${esc(kw)}”…`);
+  $("content").innerHTML = "";
+  try {
+    const data = await api(`/api/search/${encodeURIComponent(kw)}?page=1`);
+    if (!data.results || !data.results.length) { setStatus("No results found."); return; }
+    setStatus(`${data.results.length} results`);
+    $("content").innerHTML = `<div class="grid">${data.results.map(r => `
+      <div class="card" onclick="openManga('${esc(r.id)}')">
+        <img loading="lazy" src="${img(r.poster)}" alt="">
+        <div class="t">${esc(r.title)}</div>
+        <div class="s">${esc(r.type || "")}</div>
+      </div>`).join("")}</div>`;
+  } catch (e) { setStatus("Error: " + esc(e.message), true); }
+}
+
+async function openManga(id) {
+  loading("Loading series info + chapters…");
+  $("content").innerHTML = "";
+  try {
+    const info = await api(`/api/manga/${encodeURIComponent(id)}`);
+    const mi = info.mangaInfo || {};
+    const langs = (info.languages && info.languages.length ? info.languages : [{ id: "en" }]);
+    const lang = langs[0].id || "en";
+
+    $("content").innerHTML = `
+      <div class="crumbs"><a onclick="location.reload()">← New search</a> <span>/</span> <b>${esc(mi.title)}</b></div>
+      <div class="detail">
+        <img src="${img(mi.poster)}" alt="">
+        <div class="meta">
+          <h2>${esc(mi.title)}</h2>
+          <div class="tags">
+            ${mi.type ? `<span class="tag">${esc(mi.type)}</span>` : ""}
+            ${mi.status ? `<span class="tag">${esc(mi.status)}</span>` : ""}
+            ${(mi.genres || []).slice(0, 6).map(g => `<span class="tag">${esc(g)}</span>`).join("")}
+          </div>
+          <p>${esc(mi.description || "No description.")}</p>
+          <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap">
+            <button class="ghost small" onclick="copyText('${BASE}/api/manga/${esc(id)}')">Copy info URL</button>
+            <button class="ghost small" onclick="copyText('${id}')">Copy manga id</button>
+          </div>
+        </div>
+      </div>
+      <div class="rowhead">
+        <h3>Chapters</h3>
+        ${langs.length > 1 ? `<select id="langSel" onchange="loadChapters('${esc(id)}', this.value)">
+          ${langs.map(l => `<option value="${esc(l.id)}">${esc(l.title || l.id)}</option>`).join("")}
+        </select>` : ""}
+        <button class="ghost small" onclick="copyText('${BASE}/api/manga/${esc(id)}/chapters/${esc(lang)}')">Copy chapters URL</button>
+      </div>
+      <div id="chapters"><span class="spinner"></span>Loading chapters…</div>`;
+
+    await loadChapters(id, lang);
+    setStatus("");
+  } catch (e) { setStatus("Error: " + esc(e.message), true); }
+}
+
+async function loadChapters(id, lang) {
+  const box = $("chapters");
+  box.innerHTML = `<span class="spinner"></span>Loading chapters…`;
+  try {
+    const chs = await api(`/api/manga/${encodeURIComponent(id)}/chapters/${encodeURIComponent(lang)}`);
+    if (!Array.isArray(chs) || !chs.length) { box.innerHTML = "No chapters found."; return; }
+    box.innerHTML = `<div class="chapters">${chs.map(c => `
+      <div class="chap" onclick="openChapter('${esc(c.chapterId)}', '${esc(c.number)}')">
+        <span>Ch. ${esc(c.number)}${c.title ? " — " + esc(c.title) : ""}</span>
+        <span class="d">${esc(c.releaseDate || "")}</span>
+      </div>`).join("")}</div>`;
+  } catch (e) { box.innerHTML = "Error: " + esc(e.message); }
+}
+
+async function openChapter(cid, num) {
+  loading(`Loading chapter ${esc(num)} pages…`);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  const box = document.createElement("div");
+  box.innerHTML = `<div class="rowhead">
+      <h3>Chapter ${esc(num)} — pages</h3>
+      <button class="ghost small" onclick="copyText('${BASE}/api/chapter/${esc(cid)}')">Copy pages URL</button>
+      <button class="ghost small" id="copyAll">Copy all image URLs</button>
+    </div><div class="pages" id="pages"><span class="spinner"></span>Loading…</div>`;
+  $("content").appendChild(box);
+  try {
+    const urls = await api(`/api/chapter/${encodeURIComponent(cid)}`);
+    if (!Array.isArray(urls) || !urls.length) throw new Error("no pages returned");
+    $("copyAll").onclick = () => copyText(urls.join("\n"));
+    $("pages").innerHTML = urls.map((u, i) => `
+      <div class="page">
+        <img loading="lazy" src="${img(u)}" alt="page ${i + 1}">
+        <div class="n">${i + 1}</div>
+      </div>`).join("");
+    setStatus(`${urls.length} pages ready — copy the URLs or the endpoint into your app`);
+  } catch (e) { $("pages").innerHTML = "Error: " + esc(e.message); setStatus("Error: " + esc(e.message), true); }
+}
+</script>
+</body>
+</html>
