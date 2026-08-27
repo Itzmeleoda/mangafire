@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: mangafire-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HEADLESS
+        value: "true"
+      - key: POOL_SIZE
+        value: "3"
+      - key: PORT
+        value: "3000"
