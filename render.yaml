@@ -11,6 +11,6 @@ services:
       - key: HEADLESS
         value: "false"
       - key: POOL_SIZE
-        value: "3"
+        value: "2"
       - key: PORT
         value: "3000"

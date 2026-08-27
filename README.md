@@ -112,7 +112,7 @@ afterwards searches take ~10–15s and chapter images ~3s.
 |---|---|---|
 | `PORT` | `3000` | listen port |
 | `HEADLESS` | `false` | keep `false` on servers: Cloudflare's managed challenge won't auto-resolve in true headless mode. The Docker image runs headed Chromium inside a virtual display (Xvfb). |
-| `POOL_SIZE` | `3` | concurrent browser pages (memory ≈ 150–250 MB each) |
+| `POOL_SIZE` | `2` | concurrent browser pages (memory ≈ 150–250 MB each; keep at 2 on Render's 512 MB free tier) |
 | `BROWSER_PROFILE_DIR` | OS temp | persistent browser profile location |
 
 ## Wiring the Electron "Manga Bot"
