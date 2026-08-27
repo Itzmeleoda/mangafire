@@ -15,22 +15,57 @@ import { chromium, BrowserContext, Page } from 'playwright';
 export const BASE_URL = 'https://mangafire.to';
 
 const POOL_SIZE = Math.max(1, parseInt(process.env.POOL_SIZE || '3', 10));
-const HEADLESS = (process.env.HEADLESS ?? 'true') !== 'false';
+// Cloudflare's managed challenge does not auto-resolve in true headless mode,
+// so on servers we run HEADED Chromium inside a virtual display (Xvfb —
+// included in the official Playwright Docker image; the CMD starts it via
+// xvfb-run). Default is therefore headed; set HEADLESS=true only if you know
+// your environment clears CF headless.
+const HEADLESS = process.env.HEADLESS === 'true';
 const PROFILE_DIR =
   process.env.BROWSER_PROFILE_DIR || path.join(os.tmpdir(), 'mf-browser-profile');
 const NAV_TIMEOUT = 60000;
+const CHALLENGE_TIMEOUT = 90000;
+const WARMUP_RETRIES = 3;
 
 let context: BrowserContext | null = null;
 let pool: Page[] = [];
 let initPromise: Promise<BrowserContext> | null = null;
 
-async function waitOutChallenge(page: Page, timeoutMs = 45000): Promise<void> {
+/** Click the Turnstile checkbox if one is rendered (managed challenges). */
+async function tryClickTurnstile(page: Page): Promise<void> {
+  try {
+    for (const frame of page.frames()) {
+      if (!/challenges\.cloudflare\.com/.test(frame.url())) continue;
+      const box = await frame.$('input[type="checkbox"], .ctp-checkbox-container, #challenge-stage');
+      if (box) {
+        await box.click({ timeout: 3000 }).catch(() => {});
+        return;
+      }
+    }
+  } catch {
+    /* no challenge frame yet */
+  }
+}
+
+async function waitOutChallenge(page: Page, timeoutMs = CHALLENGE_TIMEOUT): Promise<void> {
   const deadline = Date.now() + timeoutMs;
+  let lastClick = 0;
   while (Date.now() < deadline) {
     const title = await page.title().catch(() => '');
     if (!/just a moment/i.test(title)) return;
+    // Nudge the Turnstile widget every ~8s while we wait.
+    if (Date.now() - lastClick > 8000) {
+      lastClick = Date.now();
+      await tryClickTurnstile(page);
+    }
     await page.waitForTimeout(2000);
   }
+  // Diagnostics: what is the challenge page actually showing?
+  const title = await page.title().catch(() => '?');
+  const url = page.url();
+  const shot = path.join(os.tmpdir(), `mf-cf-failure-${Date.now()}.png`);
+  await page.screenshot({ path: shot }).catch(() => {});
+  console.warn(`[browser] challenge stuck — title="${title}" url=${url} screenshot=${shot}`);
   throw new Error('Cloudflare challenge did not resolve in time');
 }
 
@@ -39,7 +74,7 @@ async function init(): Promise<BrowserContext> {
   if (!initPromise) {
     initPromise = (async () => {
       console.log(
-        `[browser] launching chromium (headless=${HEADLESS}, pool=${POOL_SIZE})`,
+        `[browser] launching chromium (headless=${HEADLESS}, pool=${POOL_SIZE}, display=${process.env.DISPLAY || 'none'})`,
       );
       const ctx = await chromium.launchPersistentContext(PROFILE_DIR, {
         headless: HEADLESS,
@@ -47,15 +82,35 @@ async function init(): Promise<BrowserContext> {
           '--disable-blink-features=AutomationControlled',
           '--no-first-run',
           '--disable-sync',
+          '--window-size=1366,900',
         ],
+        viewport: { width: 1366, height: 900 },
+        // No userAgent override: Chromium's native UA matches its platform,
+        // and Cloudflare flags UA/platform mismatches.
       });
       const warmup = ctx.pages()[0] || (await ctx.newPage());
       warmup.setDefaultTimeout(NAV_TIMEOUT);
-      await warmup.goto(BASE_URL + '/', {
-        waitUntil: 'domcontentloaded',
-        timeout: NAV_TIMEOUT,
-      });
-      await waitOutChallenge(warmup);
+
+      let lastErr: Error | null = null;
+      for (let attempt = 1; attempt <= WARMUP_RETRIES; attempt++) {
+        try {
+          await warmup.goto(BASE_URL + '/', {
+            waitUntil: 'domcontentloaded',
+            timeout: NAV_TIMEOUT,
+          });
+          await waitOutChallenge(warmup);
+          lastErr = null;
+          break;
+        } catch (err: any) {
+          lastErr = err;
+          console.warn(`[browser] warm-up attempt ${attempt}/${WARMUP_RETRIES} failed: ${err?.message}`);
+          await warmup.waitForTimeout(3000);
+        }
+      }
+      if (lastErr) {
+        await ctx.close().catch(() => {});
+        throw lastErr;
+      }
       console.log(`[browser] cloudflare cleared, title: ${await warmup.title()}`);
 
       pool = [warmup];

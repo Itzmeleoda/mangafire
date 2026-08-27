@@ -9,7 +9,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: HEADLESS
-        value: "true"
+        value: "false"
       - key: POOL_SIZE
         value: "3"
       - key: PORT

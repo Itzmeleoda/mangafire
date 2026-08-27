@@ -111,7 +111,7 @@ afterwards searches take ~10–15s and chapter images ~3s.
 | Var | Default | Meaning |
 |---|---|---|
 | `PORT` | `3000` | listen port |
-| `HEADLESS` | `true` | run Chromium headless (set `false` to watch it) |
+| `HEADLESS` | `false` | keep `false` on servers: Cloudflare's managed challenge won't auto-resolve in true headless mode. The Docker image runs headed Chromium inside a virtual display (Xvfb). |
 | `POOL_SIZE` | `3` | concurrent browser pages (memory ≈ 150–250 MB each) |
 | `BROWSER_PROFILE_DIR` | OS temp | persistent browser profile location |
 
